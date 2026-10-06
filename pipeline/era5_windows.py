@@ -24,6 +24,12 @@ from era5 import VARS, SHORT
 # Window-spanning months per LNY year (covers placebo..post). 2019 has no Dec-2018 in CHAP,
 # so we start 2019 in January (the 2019 placebo is truncated, consistent with CHAP coverage).
 YEAR_MONTHS = {
+    2013: [(2013, [1, 2, 3])],          # placebo-year pairs (analysis/placebo_years.py)
+    2014: [(2014, [1, 2, 3])],
+    2015: [(2015, [1, 2, 3])],
+    2016: [(2016, [1, 2, 3])],
+    2017: [(2017, [1, 2, 3])],
+    2018: [(2018, [1, 2, 3])],
     2019: [(2019, [1, 2, 3])],
     2020: [(2019, [12]), (2020, [1, 2, 3])],
     2021: [(2021, [1, 2, 3])],
@@ -61,12 +67,14 @@ def to_daily_cells(cfg, nc_paths, keep_cells) -> pd.DataFrame:
         feats = metcalc.derive_era5_features(df["t2m"], df["d2m"], df["u10"], df["v10"], df["sp"], df["gust"])
         gid = latlon_to_cell(df[latc].values, df[lonc].values, g)["grid_id"]
         long = pd.DataFrame({"time": df[timec], "grid_id": gid, "pwat": df["pwat"].values, **feats})
-        long = long[long["grid_id"].isin(keep_cells)]
-        daily = metcalc.to_beijing_daily(
-            long, "time", ["t2m", "rh", "spfh", "sp", "wind_speed", "wind_dir", "gust", "pwat"],
-            cfg["period"]["tz_offset_hours"], how={"gust": "max"})
-        frames.append(daily)
-    return pd.concat(frames, ignore_index=True)
+        frames.append(long[long["grid_id"].isin(keep_cells)])
+    # Aggregate to Beijing days only AFTER concatenating all requests: a request's last UTC
+    # hours spill into the next Beijing day (e.g. 2019-12-31 18:00 UTC = 2020-01-01 02:00 BJT),
+    # so per-request aggregation duplicated that boundary day as a partial-day row.
+    return metcalc.to_beijing_daily(
+        pd.concat(frames, ignore_index=True), "time",
+        ["t2m", "rh", "spfh", "sp", "wind_speed", "wind_dir", "gust", "pwat"],
+        cfg["period"]["tz_offset_hours"], how={"gust": "max"})
 
 
 def main():

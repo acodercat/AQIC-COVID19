@@ -9,19 +9,23 @@ year's LNY anchor (not fixed calendar dates), so the holiday signal aligns:
 
 Anchors (from config): 2019-02-05, 2020-01-25, 2021-02-12.
 A pre-trend placebo window (LNY-42d..LNY-22d) is provided for the DiD parallel-trends test.
+
+`pre_gap` drops the last N days of the pre window in every year (event-time symmetric).
+pre_gap=2 removes 23-24 Jan 2020 -- the first two days of the Wuhan lockdown, which otherwise
+fall inside the 2020 pre-period -- giving pre = LNY-21d .. LNY-3d (19 days).
 """
 from __future__ import annotations
 import pandas as pd
 
 
-def lny_windows(anchors: dict, pre=21, peri=21, post=21):
+def lny_windows(anchors: dict, pre=21, peri=21, post=21, pre_gap=0):
     """Return a tidy frame: year, period, date (one row per calendar date in-window)."""
     rows = []
     for year, anchor in anchors.items():
         a = pd.Timestamp(anchor)
         spans = {
             "placebo": (a - pd.Timedelta(days=pre + 21), a - pd.Timedelta(days=pre + 1)),
-            "pre":     (a - pd.Timedelta(days=pre),       a - pd.Timedelta(days=1)),
+            "pre":     (a - pd.Timedelta(days=pre),       a - pd.Timedelta(days=1 + pre_gap)),
             "peri":    (a,                                 a + pd.Timedelta(days=peri - 1)),
             "post":    (a + pd.Timedelta(days=peri),       a + pd.Timedelta(days=peri + post - 1)),
         }

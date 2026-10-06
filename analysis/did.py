@@ -22,16 +22,26 @@ import pandas as pd
 import statsmodels.api as sm
 
 
-def _within_ols(d: pd.DataFrame, value: str, terms: list[str], entity="grid_id"):
+def _within_ols(d: pd.DataFrame, value: str, terms: list[str], entity="grid_id",
+                cluster="cell"):
     """Entity (cell) fixed-effects estimator via within-transformation (cell-demeaning),
-    with cluster-robust SE by cell. Fast equivalent of OLS with C(cell) dummies.
+    with cluster-robust SE. Fast equivalent of OLS with C(cell) dummies.
+    cluster="cell"   : one-way clustering by cell (original specification).
+    cluster="twoway" : two-way clustering by cell and calendar date (Cameron-Gelbach-Miller),
+                       allowing for day-to-day (weather) shocks shared across cells.
     Returns (result, term_index) where params are aligned to `terms`.
     """
     d = d.dropna(subset=[value] + terms).copy()
     g = d.groupby(entity)
     yd = d[value].to_numpy() - g[value].transform("mean").to_numpy()
     X = np.column_stack([d[t].to_numpy() - g[t].transform("mean").to_numpy() for t in terms])
-    res = sm.OLS(yd, X).fit(cov_type="cluster", cov_kwds={"groups": d[entity].to_numpy()})
+    if cluster == "twoway":
+        groups = np.column_stack([pd.factorize(d[entity])[0], pd.factorize(d["date"])[0]])
+    elif cluster == "cell":
+        groups = d[entity].to_numpy()
+    else:
+        raise ValueError(f"unknown cluster={cluster!r}")
+    res = sm.OLS(yd, X).fit(cov_type="cluster", cov_kwds={"groups": groups})
     return res, {t: i for i, t in enumerate(terms)}
 
 
@@ -52,7 +62,7 @@ def _within(panel, year, value):
 
 
 def estimate_did(panel: pd.DataFrame, value: str, treat_year: int,
-                 control_year: int = 2019, meteo_cols=None) -> dict:
+                 control_year: int = 2019, meteo_cols=None, cluster="cell") -> dict:
     """DiD for one pollutant/region panel. Returns the interaction estimate + within diffs."""
     d = panel[panel.year.isin([control_year, treat_year]) &
               panel.period.isin(["pre", "peri"])].copy()
@@ -63,7 +73,7 @@ def estimate_did(panel: pd.DataFrame, value: str, treat_year: int,
     terms = ["Post", "Treat", "PostTreat"]
     if meteo_cols:
         terms += [c for c in meteo_cols if c in d.columns and d[c].notna().any()]
-    res, ix = _within_ols(d, value, terms)
+    res, ix = _within_ols(d, value, terms, cluster=cluster)
     j = ix["PostTreat"]
     ci = res.conf_int()[j]
     return {
@@ -77,12 +87,12 @@ def estimate_did(panel: pd.DataFrame, value: str, treat_year: int,
     }
 
 
-def estimate_reversion(panel, value, ref_year=2019, late_year=2021) -> dict:
+def estimate_reversion(panel, value, ref_year=2019, late_year=2021, cluster="cell") -> dict:
     """H4: did the peri (festival) level in late_year revert to the ref_year level?"""
     d = panel[panel.year.isin([ref_year, late_year]) & (panel.period == "peri")].copy()
     d = d.dropna(subset=[value]).copy()
     d["Late"] = (d.year == late_year).astype(float)
-    res, ix = _within_ols(d, value, ["Late"])
+    res, ix = _within_ols(d, value, ["Late"], cluster=cluster)
     ci = res.conf_int()[0]
     ref = d.loc[d.year == ref_year, value].mean()
     coef = float(res.params[0])
@@ -92,7 +102,8 @@ def estimate_reversion(panel, value, ref_year=2019, late_year=2021) -> dict:
             "reversion_ci_lo": float(ci[0]), "reversion_ci_hi": float(ci[1])}
 
 
-def parallel_trends_placebo(panel, value, treat_year, control_year=2019) -> dict:
+def parallel_trends_placebo(panel, value, treat_year, control_year=2019,
+                            meteo_cols=None, cluster="cell") -> dict:
     """Placebo DiD on (placebo vs pre) pre-periods: should be ~0 if trends are parallel."""
     d = panel[panel.year.isin([control_year, treat_year]) &
               panel.period.isin(["placebo", "pre"])].copy()
@@ -100,9 +111,14 @@ def parallel_trends_placebo(panel, value, treat_year, control_year=2019) -> dict
     d["Post"] = (d.period == "pre").astype(float)
     d["Treat"] = (d.year == treat_year).astype(float)
     d["PostTreat"] = d["Post"] * d["Treat"]
-    res, ix = _within_ols(d, value, ["Post", "Treat", "PostTreat"])
+    terms = ["Post", "Treat", "PostTreat"]
+    if meteo_cols:
+        terms += [c for c in meteo_cols if c in d.columns and d[c].notna().any()]
+    res, ix = _within_ols(d, value, terms, cluster=cluster)
     j = ix["PostTreat"]
-    return {"placebo_did": float(res.params[j]), "placebo_p": float(res.pvalues[j])}
+    ci = res.conf_int()[j]
+    return {"placebo_did": float(res.params[j]), "placebo_p": float(res.pvalues[j]),
+            "placebo_ci_lo": float(ci[0]), "placebo_ci_hi": float(ci[1])}
 
 
 # --------------------------------------------------------------------------
@@ -122,7 +138,8 @@ def _selftest():
                     if period == "peri":
                         val += HOLIDAY + (LOCKDOWN if year == 2020 else 0)
                     val += rng.randn() * 3
-                    rows.append({"grid_id": c, "year": year, "period": period, "no2": val})
+                    rows.append({"grid_id": c, "year": year, "period": period, "no2": val,
+                                 "date": f"{year}-{period}-{_}"})
     panel = pd.DataFrame(rows)
     r = estimate_did(panel, "no2", treat_year=2020)
     assert abs(r["did_abs"] - LOCKDOWN) < 1.5, r["did_abs"]
@@ -130,6 +147,9 @@ def _selftest():
     assert abs(r["holiday_2019"]["abs"] - HOLIDAY) < 1.5
     print(f"did self-test OK: recovered lockdown={r['did_abs']:.2f} (truth {LOCKDOWN}), "
           f"holiday={r['holiday_2019']['abs']:.2f} (truth {HOLIDAY}), p={r['did_p']:.1e}")
+    r2 = estimate_did(panel, "no2", treat_year=2020, cluster="twoway")
+    assert abs(r2["did_abs"] - r["did_abs"]) < 1e-9          # clustering changes SE only
+    print(f"two-way cluster OK: se cell={r['did_se']:.3f}, cell+date={r2['did_se']:.3f}")
 
 
 if __name__ == "__main__":

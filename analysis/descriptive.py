@@ -5,7 +5,7 @@ CHAP-based DiD by 20-40%. This recomputes, from CHAP at the study cells:
   - per-city pre vs 2020-lockdown means + % change (Beijing/Shanghai/Wuhan/Nanjing/Guangzhou);
   - national pre vs 2020-lockdown means;
   - national Lunar-New-Year peri-window means for 2019/2020/2021 (year comparison).
-Windows are LNY-event-aligned (pre = LNY-21..-1, peri = LNY..+20; the 2020 peri ~ the 2020-CLD).
+Windows are LNY-event-aligned (pre = LNY-21..-3, excluding 23-24 Jan 2020; peri = LNY..+20; the 2020 peri ~ the 2020-CLD).
 National = mean over the 747 monitoring-grid cells (the modelling grid), consistent with the DiD.
 
 Out: outputs/analysis/descriptive_numbers.csv  (+ printed summary for transcription)
@@ -32,7 +32,7 @@ def _panel(cfg):
     reg = pd.read_csv(os.path.join(ROOT, "outputs/grids/cell_regions.csv"))[
         ["grid_id", "region", "study_city"]]
     anchors = {int(k): v for k, v in cfg["lny_anchors"].items()}
-    win = lny_windows(anchors)
+    win = lny_windows(anchors, pre_gap=2)
     frames = []
     for p in POLL:
         parts = []

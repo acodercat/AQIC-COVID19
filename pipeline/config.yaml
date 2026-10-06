@@ -31,6 +31,16 @@ lny_anchors:
   2020: "2020-01-25"
   2021: "2021-02-12"
 
+# Extra no-lockdown years for the year-pair placebo DiD (analysis/placebo_years.py only;
+# kept separate so the main 2019/2020/2021 panel is unchanged).
+placebo_lny_anchors:
+  2013: "2013-02-10"
+  2014: "2014-01-31"
+  2015: "2015-02-19"
+  2016: "2016-02-08"
+  2017: "2017-01-28"
+  2018: "2018-02-16"
+
 # Study regions (provinces) and cities. Province names match the Chinese strings
 # in dataset/national_AQ_stations.csv 'province' column.
 regions:

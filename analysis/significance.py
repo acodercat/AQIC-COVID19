@@ -111,10 +111,14 @@ def regions_of(panel) -> dict:
     return out
 
 
-def run(cfg):
-    panel = build_panel(cfg)
+def run(cfg, pre_gap=0, cluster="cell", use_meteo=True, tag=""):
+    """pre_gap: drop last N pre-window days (2 -> excludes 23-24 Jan 2020 lockdown days).
+    cluster: "cell" (original) or "twoway" (cell + date). use_meteo: ERA5 covariates in H3.
+    tag: suffix for the output file (empty -> significance_table.csv)."""
+    panel = build_panel(cfg, pre_gap=pre_gap)
     have = [p for p in POLLUTANTS if p in panel.columns]
-    meteo = [m for m in METEO if m in panel.columns]
+    meteo = [m for m in METEO if m in panel.columns] if use_meteo else []
+    print(f"  spec: pre_gap={pre_gap} cluster={cluster} meteo={'YES' if meteo else 'NO'}")
     rows = []
     for region, idx in regions_of(panel).items():
         sub = panel.loc[idx]
@@ -125,9 +129,11 @@ def run(cfg):
             if sub.loc[sub.year == 2020, p].notna().sum() < 50:
                 continue
             try:
-                did = DID.estimate_did(sub, p, treat_year=2020, meteo_cols=meteo)
-                rev = DID.estimate_reversion(sub, p)
-                plac = DID.parallel_trends_placebo(sub, p, treat_year=2020)
+                did = DID.estimate_did(sub, p, treat_year=2020, meteo_cols=meteo, cluster=cluster)
+                rev = DID.estimate_reversion(sub, p, cluster=cluster)
+                plac = DID.parallel_trends_placebo(sub, p, treat_year=2020, cluster=cluster)
+                plac_m = (DID.parallel_trends_placebo(sub, p, treat_year=2020, meteo_cols=meteo,
+                                                      cluster=cluster) if meteo else None)
             except Exception as e:
                 print(f"  [skip] {region}/{p}: {e}"); continue
             rows.append({"region": region, "pollutant": p,
@@ -141,7 +147,14 @@ def run(cfg):
                          "H4_reversion_abs": rev["reversion_abs"],
                          "H4_reversion_pct": rev["reversion_pct"], "H4_p": rev["reversion_p"],
                          "placebo_DiD": plac["placebo_did"], "placebo_p": plac["placebo_p"],
-                         "n_obs": did["n_obs"]})
+                         "n_obs": did["n_obs"],
+                         **({"placebo_ci_lo": plac["placebo_ci_lo"],
+                             "placebo_ci_hi": plac["placebo_ci_hi"]} if tag else {}),
+                         **({"placebo_meteo_DiD": plac_m["placebo_did"],
+                             "placebo_meteo_p": plac_m["placebo_p"],
+                             "placebo_meteo_ci_lo": plac_m["placebo_ci_lo"],
+                             "placebo_meteo_ci_hi": plac_m["placebo_ci_hi"]}
+                            if (plac_m and tag) else {})})
     tab = pd.DataFrame(rows)
     if len(tab):
         tab["H3_qval"] = np.nan
@@ -150,10 +163,18 @@ def run(cfg):
             if m.sum():
                 tab.loc[m, "H3_qval"] = multipletests(tab.loc[m, "H3_p"], method="fdr_bh")[1]
     outdir = os.path.join(ROOT, "outputs", "analysis"); os.makedirs(outdir, exist_ok=True)
-    tab.to_csv(os.path.join(outdir, "significance_table.csv"), index=False)
-    print(f"\nwrote {outdir}/significance_table.csv ({len(tab)} region x pollutant rows)")
+    fname = f"significance_table{'_' + tag if tag else ''}.csv"
+    tab.to_csv(os.path.join(outdir, fname), index=False)
+    print(f"\nwrote {outdir}/{fname} ({len(tab)} region x pollutant rows)")
     return tab
 
 
 if __name__ == "__main__":
-    run(_load_cfg())
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pre-gap", type=int, default=0)
+    ap.add_argument("--cluster", choices=["cell", "twoway"], default="cell")
+    ap.add_argument("--no-meteo", action="store_true")
+    ap.add_argument("--tag", default="")
+    a = ap.parse_args()
+    run(_load_cfg(), pre_gap=a.pre_gap, cluster=a.cluster, use_meteo=not a.no_meteo, tag=a.tag)

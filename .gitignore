@@ -10,3 +10,11 @@ __pycache__/
 *.py[cod]
 .venv/
 .ipynb_checkpoints/
+
+# Manuscript (kept local until publication)
+SciRep_Submission/
+
+# Confidential peer-review material (kept local)
+Reviewer*attachment*
+reviewer_comments.md
+feedback.md

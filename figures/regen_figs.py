@@ -121,5 +121,5 @@ if __name__ == "__main__":
     for n in (5, 6, 7):
         src = os.path.join(OUT, f"fig{n}_chap.png")
         if os.path.exists(src):
-            import shutil; shutil.copy(src, os.path.join(ROOT, "..", "Figures", f"fig{n}.png"))
-    print("copied fig5/6/7 into Figures/")
+            import shutil; shutil.copy(src, os.path.join(ROOT, "SciRep_Submission", "Figures", f"fig{n}.png"))
+    print("copied fig5/6/7 into SciRep_Submission/Figures/")
