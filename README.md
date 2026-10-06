@@ -75,7 +75,7 @@ python figures/fig1_stations.py
 python analysis/supp_tables.py
 ```
 
-The ML-LUR results (Table 1, Fig. 2, Tables S3 and S8) are produced by `python model/train.py` and `python model/compare.py`.
+The ML-LUR results (Fig. 2, Supp. Tables S3, S8 and S13) are produced by `python model/train.py` and `python model/compare.py`.
 
 ### Where each result comes from
 
@@ -83,11 +83,11 @@ The ML-LUR results (Table 1, Fig. 2, Tables S3 and S8) are produced by `python m
 |---|---|---|
 | Fig. 1 (stations and study regions) | `figures/fig1_stations.py` | `outputs/figures/fig1_stations.png` |
 | Fig. 2, Supp. Fig. S7 (ML-LUR spatial validation) | `figures/validation.py` (after `model/train.py`) | `outputs/figures/fig3_validation.png`, `outputs/supplementary/FigS7_CO_SO2_validation.png` |
-| Table 1 (ML-LUR skill), Supp. Table S3 (hyperparameters) | `model/train.py` | `outputs/models/metrics.csv`, `best_params.json` |
+| Supp. Table S13 (ML-LUR skill), Supp. Table S3 (hyperparameters) | `model/train.py` | `outputs/models/metrics.csv`, `best_params.json` |
 | Supp. Table S8 (model comparison) | `model/compare.py` | `outputs/models/` |
 | Figs 3–4 (national maps), Supp. Fig. S10 (SO₂ by province) | `figures/regen_figs.py` | `outputs/figures/fig{5,6,7}_chap.png` |
 | In-text raw changes and inter-annual means | `analysis/descriptive.py` | `outputs/analysis/descriptive_numbers.csv` |
-| Table 2, Fig. 5, Supp. Table S9 (DiD with and without meteorology) | `analysis/significance.py` (rev tags), `figures/revision_figs.py` | `outputs/analysis/significance_table_rev_gap2_twoway_{nometeo,meteo}.csv`, `outputs/figures/did_forest_rev.png` |
+| Table 1, Fig. 5, Supp. Table S9 (DiD with and without meteorology) | `analysis/significance.py` (rev tags), `figures/revision_figs.py` | `outputs/analysis/significance_table_rev_gap2_twoway_{nometeo,meteo}.csv`, `outputs/figures/did_forest_rev.png` |
 | Fig. 6, Supp. Fig. S12, Supp. Table S4 (event study) | `analysis/event_study.py` | `outputs/figures/event_study_{nometeo,meteo}.png`, `outputs/analysis/event_study_{coefs,pretrend}.csv` |
 | Supp. Table S5 (window length, placebo-window pre-trend test) | `analysis/robustness.py`, `analysis/significance.py` | `outputs/analysis/robustness_table_rev.csv` |
 | Fig. 7, Supp. Table S10 (year-pair placebo) | `analysis/placebo_years.py`, `figures/revision_figs.py` | `outputs/analysis/placebo_years{,_summary}.csv`, `outputs/figures/placebo_years_no2.png` |

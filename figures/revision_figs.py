@@ -1,6 +1,6 @@
 """Revision figures (Sci Rep round 1).
 
-(1) did_forest_rev.png  — DiD lockdown effect (net of holiday) per pollutant x region under the
+(1) did_forest_rev.png  — DiD estimate (2020 change net of the 2019 holiday change) per pollutant x region under the
     revised specification, with and without ERA5 covariates side by side (two-way clustered 95% CI;
     filled = BH-FDR q < 0.05). Replaces the single-specification did_forest.png (Fig. 8).
 (2) placebo_years_no2.png — year-pair placebo test for NO2: DiD between consecutive no-lockdown
@@ -56,7 +56,7 @@ def did_forest_rev():
     handles = [plt.Line2D([], [], marker=mk, color=col, ls="", label=lab)
                for mk, col, lab in SPEC.values()]
     fig.legend(handles=handles, loc="upper center", ncol=2, fontsize=8, frameon=False)
-    fig.supxlabel("Lockdown effect net of the holiday, 2020 vs 2019 (DiD; $\\mu$g m$^{-3}$, "
+    fig.supxlabel("2020 change beyond the 2019 holiday change (DiD; $\\mu$g m$^{-3}$, "
                   "CO in mg m$^{-3}$)", fontsize=8)
     fig.tight_layout(rect=[0, 0, 1, 0.96])
     out = os.path.join(FDIR, "did_forest_rev.png")
