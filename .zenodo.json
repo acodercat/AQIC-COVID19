@@ -1,0 +1,36 @@
+{
+  "title": "AQIC-COVID19: code for \"Separating the Holiday from the Lockdown: A Multiscale Difference-in-Differences Analysis of COVID-19 Effects on Air Quality in China\"",
+  "upload_type": "software",
+  "description": "<p>Code supporting Ran, Jiang, Ma &amp; Song, \"Separating the Holiday from the Lockdown: A Multiscale Difference-in-Differences Analysis of COVID-19 Effects on Air Quality in China\" (Scientific Reports, under revision).</p><p>Contents: the data pipeline (CHAP, ERA5, AOD, land cover, elevation, 0.25&deg; gridding); the machine-learning land-use regression model (LightGBM, with hyperparameter search, spatial cross-validation and model comparison); and the lockdown analyses, namely difference-in-differences with two-way clustered standard errors, event study, window-length robustness, a year-pair placebo test and an evaluation of CHAP against station observations. The README maps every table and figure in the paper to the script that produces it. The processed data are archived in a separate Zenodo record.</p>",
+  "creators": [
+    {
+      "name": "Ran, Maohao",
+      "affiliation": "Department of Geography, Hong Kong Baptist University"
+    },
+    {
+      "name": "Jiang, Dailing",
+      "affiliation": "Department of Geography, Hong Kong Baptist University"
+    },
+    {
+      "name": "Ma, Chendong",
+      "affiliation": "Department of Geography, Hong Kong Baptist University"
+    },
+    {
+      "name": "Song, Jun",
+      "affiliation": "Department of Geography, Hong Kong Baptist University"
+    }
+  ],
+  "license": "MIT",
+  "keywords": [
+    "COVID-19",
+    "air quality",
+    "lockdown",
+    "difference-in-differences",
+    "machine learning",
+    "land-use regression",
+    "China",
+    "NO2",
+    "CHAP",
+    "ERA5"
+  ]
+}
