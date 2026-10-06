@@ -1,0 +1,29 @@
+== 1. CHAP vs CNEMC overlap (Dec 2019) ==
+  pm2_5 : r=0.941  bias(CHAP-CNEMC)=-2.67  n=18920
+  pm10  : r=0.926  bias(CHAP-CNEMC)=-2.75  n=18920
+  so2   : r=0.789  bias(CHAP-CNEMC)=-0.59  n=18920
+  no2   : r=0.859  bias(CHAP-CNEMC)=-4.06  n=18920
+  o3    : r=0.800  bias(CHAP-CNEMC)=+22.56  n=18920
+  co    : r=0.855  bias(CHAP-CNEMC)=-0.04  n=18920
+
+== 2/3. Grid counts & leakage ==
+  mapping land cells: 15223 (paper states 16,129; NE 1:50m boundary)
+  modeling cells: 747 (original 747)
+  holdout cells: 49 (original 49)
+  [PASS] train/test grid leakage: 0 shared cells
+
+== 4. Unit / physical-range checks (CHAP) ==
+  pm2_5 : min=2.72 max=848.1 mean=33.1 out-of-range=0  (ug/m3)
+  pm10  : min=5.39 max=2015.2 mean=58.0 out-of-range=0  (ug/m3)
+  so2   : min=2.83 max=78.8 mean=9.6 out-of-range=0  (ug/m3)
+  no2   : min=3.52 max=114.9 mean=22.5 out-of-range=0  (ug/m3)
+  o3    : min=5.01 max=293.0 mean=91.2 out-of-range=0  (ug/m3)
+  co    : min=0.19 max=5.4 mean=0.7 out-of-range=0  (mg/m3)
+
+== 5. Missingness (CHAP no-data fraction) ==
+  pm2_5 : mean NaN fraction across years = 0.0000
+  pm10  : mean NaN fraction across years = 0.0000
+  so2   : mean NaN fraction across years = 0.0000
+  no2   : mean NaN fraction across years = 0.0000
+  o3    : mean NaN fraction across years = 0.0000
+  co    : mean NaN fraction across years = 0.0000

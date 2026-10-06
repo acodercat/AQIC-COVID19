@@ -1,0 +1,74 @@
+{
+  "pm2_5": {
+    "colsample_bytree": 0.8404460046972835,
+    "learning_rate": 0.08329844231669226,
+    "max_depth": 20,
+    "min_child_samples": 21,
+    "n_estimators": 400,
+    "num_leaves": 324,
+    "reg_alpha": 0.0010071984838809194,
+    "reg_lambda": 9.307782732027235,
+    "subsample": 0.8469926038510867,
+    "subsample_freq": 2
+  },
+  "pm10": {
+    "colsample_bytree": 0.8404460046972835,
+    "learning_rate": 0.08329844231669226,
+    "max_depth": 20,
+    "min_child_samples": 21,
+    "n_estimators": 400,
+    "num_leaves": 324,
+    "reg_alpha": 0.0010071984838809194,
+    "reg_lambda": 9.307782732027235,
+    "subsample": 0.8469926038510867,
+    "subsample_freq": 2
+  },
+  "so2": {
+    "colsample_bytree": 0.6783931449676581,
+    "learning_rate": 0.021908197340907744,
+    "max_depth": 20,
+    "min_child_samples": 101,
+    "n_estimators": 600,
+    "num_leaves": 83,
+    "reg_alpha": 0.2223333760592037,
+    "reg_lambda": 7.261414516028836,
+    "subsample": 0.8428136990746738,
+    "subsample_freq": 5
+  },
+  "no2": {
+    "colsample_bytree": 0.679536961635522,
+    "learning_rate": 0.08384897993041009,
+    "max_depth": 12,
+    "min_child_samples": 52,
+    "n_estimators": 600,
+    "num_leaves": 291,
+    "reg_alpha": 5.072283440670041,
+    "reg_lambda": 0.4020759548749851,
+    "subsample": 0.9659838702175123,
+    "subsample_freq": 1
+  },
+  "o3": {
+    "colsample_bytree": 0.8404460046972835,
+    "learning_rate": 0.08329844231669226,
+    "max_depth": 20,
+    "min_child_samples": 21,
+    "n_estimators": 400,
+    "num_leaves": 324,
+    "reg_alpha": 0.0010071984838809194,
+    "reg_lambda": 9.307782732027235,
+    "subsample": 0.8469926038510867,
+    "subsample_freq": 2
+  },
+  "co": {
+    "colsample_bytree": 0.679536961635522,
+    "learning_rate": 0.08384897993041009,
+    "max_depth": 12,
+    "min_child_samples": 52,
+    "n_estimators": 600,
+    "num_leaves": 291,
+    "reg_alpha": 5.072283440670041,
+    "reg_lambda": 0.4020759548749851,
+    "subsample": 0.9659838702175123,
+    "subsample_freq": 1
+  }
+}

@@ -18,10 +18,11 @@ All DiD estimates use CHAP; the ML-LUR model is not used in the lockdown estimat
 | `analysis/` | LNY windows (`windows.py`), DiD estimator (`did.py`), significance tables (`significance.py`), event study, window-length robustness, year-pair placebo, descriptive numbers, outlier report, supplementary-table generation. |
 | `verify/` | Data-integrity checks (`sanity.py`) and CHAP-vs-station evaluation during the lockdown (`chap_lockdown_validation.py`). |
 | `figures/` | Figure scripts. |
-| `dataset/` | Station list (`national_AQ_stations.csv`); the ML-LUR train/test tables are downloaded separately (below). |
+| `data/` | **Processed data and all results** (CSV/Parquet; CC BY 4.0) — see `data/README.md`. |
+| `dataset/` | Station list (`national_AQ_stations.csv`); place the ML-LUR train/test tables here (below). |
 | `lgb.py`, `air_quality_lgb_model.ipynb` | Original single-model LightGBM scripts (first version of the study). |
 
-Generated files are written to `outputs/` (not version-controlled; ~90 GB with the raw CHAP archives).
+Generated files are written to `outputs/` (not version-controlled; ~90 GB with the raw CHAP archives). The processed files and results used in the paper are copied to `data/`, so the tables and figures can be checked without rerunning the pipeline.
 
 ## Installation
 
@@ -35,7 +36,7 @@ uv venv --python 3.13 && uv pip sync requirements.txt     # or: pip install -r r
 
 | Data | Source | Access |
 |---|---|---|
-| CNEMC-based model tables (`dataset/train_set.csv`, `test_set.csv`) | this study | [Google Drive](https://drive.google.com/drive/folders/12ZRGJg0IK3h3j9HbxZFV3h8cM_vTWjvU?usp=sharing) / Zenodo (DOI below) |
+| CNEMC-based model tables (`dataset/train_set.csv`, `test_set.csv`) | this study | `data/ml_lur_dataset/*.csv.gz` (`gunzip -c data/ml_lur_dataset/train_set.csv.gz > dataset/train_set.csv`), or [Google Drive](https://drive.google.com/drive/folders/12ZRGJg0IK3h3j9HbxZFV3h8cM_vTWjvU?usp=sharing) |
 | CHAP 1-km daily PM₂.₅ V4, PM₁₀ V4, O₃ V3 | Wei et al. | Zenodo, open |
 | CHAP 1-km daily NO₂, SO₂, CO V2 (2019–) | Wei et al. | Zenodo, **restricted** — request access from the providers |
 | CHAP 10-km daily NO₂, SO₂, CO V1 (2013–2018, placebo years) | Wei et al. | Zenodo, open |
@@ -103,7 +104,7 @@ The ML-LUR results (Fig. 2, Supp. Tables S3, S8 and S13) are produced by `python
 
 ## Citation and archive
 
-Archived version: Zenodo, DOI [10.5281/zenodo.XXXXXXX](https://doi.org/10.5281/zenodo.XXXXXXX).
+Code and processed data (all versions): Zenodo, DOI [10.5281/zenodo.23181067](https://doi.org/10.5281/zenodo.23181067).
 
 ## License
 
