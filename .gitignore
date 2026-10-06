@@ -1,0 +1,12 @@
+# Generated experiment outputs (~91 GB) — reproducible via pipeline/ + analysis/
+outputs/
+
+# Large datasets — distributed via Google Drive (see dataset/README.md)
+dataset/*.csv
+!dataset/national_AQ_stations.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.ipynb_checkpoints/

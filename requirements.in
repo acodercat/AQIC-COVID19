@@ -1,0 +1,24 @@
+# Top-level dependencies. Locked versions: requirements.txt (uv pip compile).
+# Core analysis / modelling
+numpy
+pandas
+pyarrow
+scipy
+statsmodels
+scikit-learn
+lightgbm
+xgboost
+# Geospatial / gridded data
+xarray
+netcdf4
+rioxarray
+regionmask
+geopandas
+# Figures
+matplotlib
+# Data pipeline (downloaders)
+cdsapi
+earthengine-api
+libarchive-c
+requests
+pyyaml

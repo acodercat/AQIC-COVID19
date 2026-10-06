@@ -1,0 +1,98 @@
+# AQIC-COVID19 — Tier-4 reconstruction config
+# Canonical 0.25 grid was reverse-engineered from the original dataset and verified
+# to reproduce all 747 station-cell grid_ids exactly (0 mismatches):
+#   grid_id = row*ncol + col + 1   (1-indexed, row-major)
+#   row = (lat - lat0)/dx ,  col = (lon - lon0)/dx
+
+grid:
+  lat0: 18.0          # row 0 cell-center latitude (deg N)
+  lon0: 73.0          # col 0 cell-center longitude (deg E)
+  dx: 0.25            # cell size (deg)
+  ncol: 249           # columns per row (fixed by the original encoding)
+  # Full China bounding box for the mapping/inference grid.
+  # China's true extent is ~18N..53.6N, ~73.5E..135.1E. We keep lon0=73.0 and
+  # extend lat north of the data max (50.5) to cover NE China.
+  lat_min: 18.0
+  lat_max: 53.75
+  lon_min: 73.0
+  lon_max: 135.0
+
+period:
+  # Full study period after filling the 2019 gap (Reviewer 3).
+  start: "2019-01-01"
+  end:   "2021-11-27"
+  tz_offset_hours: 8   # aggregate to daily means in Beijing time (UTC+8)
+
+pollutants: [pm2_5, pm10, so2, no2, o3, co]
+
+# Lunar New Year anchors for event-time alignment (Stage 4)
+lny_anchors:
+  2019: "2019-02-05"
+  2020: "2020-01-25"
+  2021: "2021-02-12"
+
+# Study regions (provinces) and cities. Province names match the Chinese strings
+# in dataset/national_AQ_stations.csv 'province' column.
+regions:
+  provinces:
+    Jilin:      ["吉林省"]
+    Jiangsu:    ["江苏省"]
+    Guangdong:  ["广东省"]
+    Xinjiang:   ["新疆维吾尔自治区"]
+    BTH:        ["北京市", "天津市", "河北省"]
+  cities:       # match 'city' column
+    Beijing:    "北京市"
+    Shanghai:   "上海市"
+    Wuhan:      "武汉市"
+    Nanjing:    "南京市"
+    Guangzhou:  "广州市"
+
+paths:
+  stations: "dataset/national_AQ_stations.csv"
+  old_train: "dataset/train_set.csv"
+  old_test:  "dataset/test_set.csv"
+  out_grids: "outputs/grids"
+  out_models: "outputs/models"
+
+# Modeling configuration (Stage 3). `dataset.*` points at the table the model reads.
+# Until the Stage-1 rebuild is available this defaults to the ORIGINAL data so the
+# harness (RSCV + spatial CV + model comparison) is runnable and testable now; swap
+# `train`/`test` to the rebuilt parquet later and update `features` to the new schema.
+dataset:
+  train: "dataset/train_set.csv"
+  test:  "dataset/test_set.csv"
+  group: "grid_id"          # spatial CV grouping unit
+  date:  "date"
+  # Feature schema currently in the data (original 21). After Stage 1, replace the
+  # cryptic NCEP names with the ERA5 ones (t2m, rh, wind_speed, wind_dir, gust, sp,
+  # spfh, pwat) and land-cover %-columns.
+  features:
+    - lat
+    - lon
+    - TMP_P0_L1_GLL0
+    - SPFH_P0_2L108_GLL0
+    - RH_P0_L4_GLL0
+    - PWAT_P0_L200_GLL0
+    - UGRD_P0_L6_GLL0
+    - GUST_P0_L1_GLL0
+    - PRES_P0_L7_GLL0
+    - CultivatedLand
+    - WoodLand
+    - GrassLand
+    - Waters
+    - UrbanRural
+    - UnusedLand
+    - Ocean
+    - ELEVATION
+    - AOD
+    - month
+    - year
+    - weekday
+
+model:
+  hpo_n_iter: 20            # RandomizedSearchCV candidates per pollutant
+  cv_folds: 3              # spatial GroupKFold folds
+  hpo_subsample: 120000    # rows used for the RSCV search (final model refit on full data)
+  random_state: 42
+  svr_subsample: 20000     # SVR is O(n^2): train the comparison SVR on a subsample
+  n_jobs: -1
