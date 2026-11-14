@@ -21,16 +21,18 @@ import metcalc
 from grid import load_config, ROOT, latlon_to_cell
 from era5 import VARS, SHORT
 
-# Window-spanning months per LNY year (covers placebo..post). 2019 has no Dec-2018 in CHAP,
-# so we start 2019 in January (the 2019 placebo is truncated, consistent with CHAP coverage).
+# Window-spanning months per LNY year (covers placebo..post). The placebo window (LNY-42..-22)
+# starts in December for 2016, 2017, 2019 and 2020, so the preceding December is included for
+# those years (needed by the station-based pre-trend test in analysis/multiyear.py; CHAP itself
+# has no December 2018, so the CHAP 2019 placebo window stays truncated).
 YEAR_MONTHS = {
     2013: [(2013, [1, 2, 3])],          # placebo-year pairs (analysis/placebo_years.py)
     2014: [(2014, [1, 2, 3])],
     2015: [(2015, [1, 2, 3])],
-    2016: [(2016, [1, 2, 3])],
-    2017: [(2017, [1, 2, 3])],
+    2016: [(2015, [12]), (2016, [1, 2, 3])],
+    2017: [(2016, [12]), (2017, [1, 2, 3])],
     2018: [(2018, [1, 2, 3])],
-    2019: [(2019, [1, 2, 3])],
+    2019: [(2018, [12]), (2019, [1, 2, 3])],
     2020: [(2019, [12]), (2020, [1, 2, 3])],
     2021: [(2021, [1, 2, 3])],
 }
@@ -66,15 +68,20 @@ def to_daily_cells(cfg, nc_paths, keep_cells) -> pd.DataFrame:
         timec = "time" if "time" in df else "valid_time"
         feats = metcalc.derive_era5_features(df["t2m"], df["d2m"], df["u10"], df["v10"], df["sp"], df["gust"])
         gid = latlon_to_cell(df[latc].values, df[lonc].values, g)["grid_id"]
-        long = pd.DataFrame({"time": df[timec], "grid_id": gid, "pwat": df["pwat"].values, **feats})
+        # wind direction is circular: average its unit-vector components, not the angles
+        wd_sin, wd_cos = metcalc.direction_components(feats.pop("wind_dir"))
+        long = pd.DataFrame({"time": df[timec], "grid_id": gid, "pwat": df["pwat"].values,
+                             **feats, "wd_sin": wd_sin, "wd_cos": wd_cos})
         frames.append(long[long["grid_id"].isin(keep_cells)])
     # Aggregate to Beijing days only AFTER concatenating all requests: a request's last UTC
     # hours spill into the next Beijing day (e.g. 2019-12-31 18:00 UTC = 2020-01-01 02:00 BJT),
     # so per-request aggregation duplicated that boundary day as a partial-day row.
-    return metcalc.to_beijing_daily(
+    daily = metcalc.to_beijing_daily(
         pd.concat(frames, ignore_index=True), "time",
-        ["t2m", "rh", "spfh", "sp", "wind_speed", "wind_dir", "gust", "pwat"],
+        ["t2m", "rh", "spfh", "sp", "wind_speed", "wd_sin", "wd_cos", "gust", "pwat"],
         cfg["period"]["tz_offset_hours"], how={"gust": "max"})
+    daily["wind_dir"] = metcalc.direction_from_components(daily.pop("wd_sin"), daily.pop("wd_cos"))
+    return daily
 
 
 def main():

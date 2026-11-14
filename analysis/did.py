@@ -6,7 +6,8 @@ effect, isolating the lockdown-attributable change:
 
     DiD = (peri_2020 - pre_2020) - (peri_2019 - pre_2019)
 
-Estimated by OLS with cell fixed effects and cluster-robust SE (by cell):
+Estimated by OLS with cell fixed effects and cluster-robust SE (by cell, or two-way by cell and
+calendar date with cluster="twoway", the main specification):
 
     C_it = b0 + b1*Post + b2*Treat + b3*(Post*Treat) + [meteo] + alpha_cell + e
             Post = 1 if peri (during),  Treat = 1 if treated year (2020)
@@ -31,7 +32,16 @@ def _within_ols(d: pd.DataFrame, value: str, terms: list[str], entity="grid_id",
                        allowing for day-to-day (weather) shocks shared across cells.
     Returns (result, term_index) where params are aligned to `terms`.
     """
-    d = d.dropna(subset=[value] + terms).copy()
+    yd, X, groups = within_design(d, value, terms, entity, cluster)
+    res = sm.OLS(yd, X).fit(cov_type="cluster", cov_kwds={"groups": groups})
+    return res, {t: i for i, t in enumerate(terms)}
+
+
+def within_design(d: pd.DataFrame, value: str, terms: list[str], entity="grid_id",
+                  cluster="cell"):
+    """Cell-demeaned outcome and regressors plus cluster ids (shared by _within_ols and the
+    wild cluster bootstrap). cluster: "cell", "date" or "twoway"."""
+    d = d.dropna(subset=[value] + terms)
     g = d.groupby(entity)
     yd = d[value].to_numpy() - g[value].transform("mean").to_numpy()
     X = np.column_stack([d[t].to_numpy() - g[t].transform("mean").to_numpy() for t in terms])
@@ -39,10 +49,11 @@ def _within_ols(d: pd.DataFrame, value: str, terms: list[str], entity="grid_id",
         groups = np.column_stack([pd.factorize(d[entity])[0], pd.factorize(d["date"])[0]])
     elif cluster == "cell":
         groups = d[entity].to_numpy()
+    elif cluster == "date":
+        groups = pd.factorize(d["date"])[0]
     else:
         raise ValueError(f"unknown cluster={cluster!r}")
-    res = sm.OLS(yd, X).fit(cov_type="cluster", cov_kwds={"groups": groups})
-    return res, {t: i for i, t in enumerate(terms)}
+    return yd, X, groups
 
 
 def cohens_d(a, b):
@@ -61,18 +72,26 @@ def _within(panel, year, value):
             "d": cohens_d(peri, pre)}
 
 
-def estimate_did(panel: pd.DataFrame, value: str, treat_year: int,
-                 control_year: int = 2019, meteo_cols=None, cluster="cell") -> dict:
-    """DiD for one pollutant/region panel. Returns the interaction estimate + within diffs."""
+def did_frame(panel, value, treat_year, control_year=2019, meteo_cols=None,
+              periods=("pre", "peri")):
+    """Two-year DiD frame: rows of the two years and two periods, Post/Treat/PostTreat dummies
+    (Post = second period) and the regressor list (meteo columns appended if present)."""
     d = panel[panel.year.isin([control_year, treat_year]) &
-              panel.period.isin(["pre", "peri"])].copy()
+              panel.period.isin(list(periods))].copy()
     d = d.dropna(subset=[value]).copy()
-    d["Post"] = (d.period == "peri").astype(float)
+    d["Post"] = (d.period == periods[1]).astype(float)
     d["Treat"] = (d.year == treat_year).astype(float)
     d["PostTreat"] = d["Post"] * d["Treat"]
     terms = ["Post", "Treat", "PostTreat"]
     if meteo_cols:
         terms += [c for c in meteo_cols if c in d.columns and d[c].notna().any()]
+    return d, terms
+
+
+def estimate_did(panel: pd.DataFrame, value: str, treat_year: int,
+                 control_year: int = 2019, meteo_cols=None, cluster="cell") -> dict:
+    """DiD for one pollutant/region panel. Returns the interaction estimate + within diffs."""
+    d, terms = did_frame(panel, value, treat_year, control_year, meteo_cols)
     res, ix = _within_ols(d, value, terms, cluster=cluster)
     j = ix["PostTreat"]
     ci = res.conf_int()[j]
@@ -105,15 +124,8 @@ def estimate_reversion(panel, value, ref_year=2019, late_year=2021, cluster="cel
 def parallel_trends_placebo(panel, value, treat_year, control_year=2019,
                             meteo_cols=None, cluster="cell") -> dict:
     """Placebo DiD on (placebo vs pre) pre-periods: should be ~0 if trends are parallel."""
-    d = panel[panel.year.isin([control_year, treat_year]) &
-              panel.period.isin(["placebo", "pre"])].copy()
-    d = d.dropna(subset=[value]).copy()
-    d["Post"] = (d.period == "pre").astype(float)
-    d["Treat"] = (d.year == treat_year).astype(float)
-    d["PostTreat"] = d["Post"] * d["Treat"]
-    terms = ["Post", "Treat", "PostTreat"]
-    if meteo_cols:
-        terms += [c for c in meteo_cols if c in d.columns and d[c].notna().any()]
+    d, terms = did_frame(panel, value, treat_year, control_year, meteo_cols,
+                         periods=("placebo", "pre"))
     res, ix = _within_ols(d, value, terms, cluster=cluster)
     j = ix["PostTreat"]
     ci = res.conf_int()[j]

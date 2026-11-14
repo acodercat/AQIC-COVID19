@@ -61,6 +61,18 @@ def to_beijing_daily(ds_hourly: pd.DataFrame, time_col: str, value_cols: list[st
     return out
 
 
+def direction_components(deg):
+    """Unit-vector components (sin, cos) of a direction in degrees. Directions must be averaged
+    through these components: the arithmetic mean of 350 and 10 degrees is 180, not 0."""
+    r = np.radians(np.asarray(deg, float))
+    return np.sin(r), np.cos(r)
+
+
+def direction_from_components(s, c):
+    """Mean direction in degrees [0, 360) from averaged (sin, cos) components."""
+    return np.degrees(np.arctan2(np.asarray(s, float), np.asarray(c, float))) % 360.0
+
+
 def derive_era5_features(t2m_k, d2m_k, u10, v10, sp_pa, gust=None) -> dict:
     """Map raw ERA5 fields -> the model's near-surface met features."""
     t_c = np.asarray(t2m_k) - ZERO_C
@@ -96,6 +108,9 @@ def _selftest():
                        "gid": [1, 1], "t2m": [5.0, 7.0], "gust": [9.0, 3.0]})
     d = to_beijing_daily(df, "time", ["t2m", "gust"], 8, how={"gust": "max"})
     assert set(d["date"]) == {"2020-01-02", "2020-01-01"}
+    # circular daily mean: 350 and 10 degrees -> 0 degrees (arithmetic mean would give 180)
+    ws, wc = direction_components([350.0, 10.0])
+    assert abs(((direction_from_components(ws.mean(), wc.mean()) + 180) % 360) - 180) < 1e-9
     print("metcalc self-test OK")
 
 

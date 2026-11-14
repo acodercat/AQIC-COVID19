@@ -1,0 +1,8 @@
+pollutant,stations_in_archive,stations_kept,cells_kept
+pm2_5,1994,1006,490
+pm10,1994,388,236
+so2,1994,1029,496
+no2,1994,1011,490
+o3,1994,820,425
+co,1994,985,474
+o3_mean,1994,965,479

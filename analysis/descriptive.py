@@ -103,6 +103,22 @@ def main():
     pd.DataFrame(rows).to_csv(out, index=False)
     print(f"\nwrote {out}")
 
+    # ---- Beijing 2020 haze: weather in the peri windows (Reviewer 3, round 2, #11) ----
+    mfile = os.path.join(ROOT, "outputs", "features", "era5_windows.parquet")
+    if os.path.exists(mfile):
+        met = pd.read_parquet(mfile)[["grid_id", "date", "rh", "wind_speed", "t2m"]]
+        panel = panel.merge(met, on=["grid_id", "date"], how="left")
+        b = panel[(panel.study_city == "Beijing") & panel.year.isin([2019, 2020]) & (panel.period == "peri")]
+        w = b.groupby("year")[["pm2_5", "rh", "wind_speed", "t2m"]].mean()
+        d = b[b.year == 2020].groupby("date")[["pm2_5", "rh", "wind_speed"]].mean()
+        hz = {"rh_2019": w.loc[2019, "rh"], "rh_2020": w.loc[2020, "rh"],
+              "ws_2019": w.loc[2019, "wind_speed"], "ws_2020": w.loc[2020, "wind_speed"],
+              "r_pm25_rh_2020": d.pm2_5.corr(d.rh), "r_pm25_ws_2020": d.pm2_5.corr(d.wind_speed),
+              "days_pm25_gt115_2020": int((d.pm2_5 > 115).sum()), "days_2020": len(d)}
+        out2 = os.path.join(ROOT, "outputs", "analysis", "beijing_haze_meteo.csv")
+        pd.DataFrame([hz]).to_csv(out2, index=False)
+        print(f"wrote {out2}: {hz}")
+
 
 if __name__ == "__main__":
     main()

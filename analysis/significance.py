@@ -111,12 +111,18 @@ def regions_of(panel) -> dict:
     return out
 
 
-def run(cfg, pre_gap=0, cluster="cell", use_meteo=True, tag=""):
+def run(cfg, pre_gap=0, cluster="cell", use_meteo=True, tag="", log=False):
     """pre_gap: drop last N pre-window days (2 -> excludes 23-24 Jan 2020 lockdown days).
     cluster: "cell" (original) or "twoway" (cell + date). use_meteo: ERA5 covariates in H3.
-    tag: suffix for the output file (empty -> significance_table.csv)."""
+    tag: suffix for the output file (empty -> significance_table.csv).
+    log: estimate the DiD on log concentrations (proportional changes; Reviewer 3, round 2, #6:
+    if levels decline year on year, a proportional holiday effect shrinks in absolute terms).
+    With log=True the *_abs columns are log points and H3_pct = 100*(exp(H3)-1)."""
     panel = build_panel(cfg, pre_gap=pre_gap)
     have = [p for p in POLLUTANTS if p in panel.columns]
+    if log:
+        for p in have:
+            panel[p] = np.log(panel[p].where(panel[p] > 0))
     meteo = [m for m in METEO if m in panel.columns] if use_meteo else []
     print(f"  spec: pre_gap={pre_gap} cluster={cluster} meteo={'YES' if meteo else 'NO'}")
     rows = []
@@ -162,6 +168,11 @@ def run(cfg, pre_gap=0, cluster="cell", use_meteo=True, tag=""):
             m = tab["pollutant"] == p
             if m.sum():
                 tab.loc[m, "H3_qval"] = multipletests(tab.loc[m, "H3_p"], method="fdr_bh")[1]
+                if tag:                      # Benjamini-Yekutieli: valid under any dependence
+                    tab.loc[m, "H3_qval_by"] = multipletests(tab.loc[m, "H3_p"], method="fdr_by")[1]
+        if log:
+            for c in ("H3_lockdown_DiD", "H3_ci_lo", "H3_ci_hi"):
+                tab[c.replace("H3_lockdown_DiD", "H3") + "_pct"] = 100 * np.expm1(tab[c])
     outdir = os.path.join(ROOT, "outputs", "analysis"); os.makedirs(outdir, exist_ok=True)
     fname = f"significance_table{'_' + tag if tag else ''}.csv"
     tab.to_csv(os.path.join(outdir, fname), index=False)
@@ -176,5 +187,7 @@ if __name__ == "__main__":
     ap.add_argument("--cluster", choices=["cell", "twoway"], default="cell")
     ap.add_argument("--no-meteo", action="store_true")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--log", action="store_true", help="DiD on log concentrations")
     a = ap.parse_args()
-    run(_load_cfg(), pre_gap=a.pre_gap, cluster=a.cluster, use_meteo=not a.no_meteo, tag=a.tag)
+    run(_load_cfg(), pre_gap=a.pre_gap, cluster=a.cluster, use_meteo=not a.no_meteo, tag=a.tag,
+        log=a.log)

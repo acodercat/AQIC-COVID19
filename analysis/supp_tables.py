@@ -1,7 +1,7 @@
 """Write the revised Supplementary Tables (LaTeX fragments) from the analysis outputs, so that every
 number in the Supplementary Information is generated, not transcribed.
 
-Out: SciRep_Submission/revision/tables/S{2,4,5,9,10,11,12}.tex  (\\input by supplementary.tex)
+Out: SciRep_Submission/revision/tables/S{2,4,5,9,10,11,12,14,15,16,17}.tex  (\\input by supplementary.tex)
 """
 from __future__ import annotations
 import os, sys
@@ -16,7 +16,7 @@ ROOT = S.ROOT
 A = os.path.join(ROOT, "outputs", "analysis")
 OUT = os.path.join(ROOT, "SciRep_Submission", "revision", "tables")
 TEX = {"pm2_5": "PM$_{2.5}$", "pm10": "PM$_{10}$", "so2": "SO$_2$", "no2": "NO$_2$",
-       "o3": "O$_3$", "co": "CO"}
+       "o3": "O$_3$ (MDA8)", "co": "CO"}
 ORDER = ["National", "BTH", "Jilin", "Jiangsu", "Guangdong", "Xinjiang",
          "Beijing", "Shanghai", "Nanjing", "Wuhan", "Guangzhou"]
 POLS = ["no2", "pm2_5", "pm10", "so2", "o3", "co"]
@@ -24,7 +24,11 @@ POLS = ["no2", "pm2_5", "pm10", "so2", "o3", "co"]
 
 def num(x, p):
     """Format with p decimals (CO gets one extra), keeping the sign."""
-    return "--" if pd.isna(x) else f"{x:+.{p}f}".replace("-", "$-$")
+    if pd.isna(x):
+        return "--"
+    if round(x, p) == 0:                 # no sign on a value that rounds to zero
+        return f"{0:.{p}f}"
+    return f"{x:+.{p}f}".replace("-", "$-$")
 
 
 def pv(x):
@@ -85,8 +89,7 @@ def s4():
             "peri$-$pre: peri-period mean relative to the pre-period mean (equal to the DiD estimate without "
             "meteorology; with covariates it differs slightly because the covariate coefficients are estimated "
             "jointly with event-day fixed effects). "
-            "Units: $\\upmu$g/m$^3$ (CO in mg/m$^3$). Replaces the ratio-based statistic of the original "
-            "submission.}\n\\begin{tabular}{lrrrrrr}\n\\toprule\n & \\multicolumn{3}{c}{\\textbf{No meteorology}}"
+            "Units: $\\upmu$g/m$^3$ (CO in mg/m$^3$).}\n\\begin{tabular}{lrrrrrr}\n\\toprule\n & \\multicolumn{3}{c}{\\textbf{No meteorology}}"
             " & \\multicolumn{3}{c}{\\textbf{ERA5-adjusted}}\\\\\n\\cmidrule(lr){2-4}\\cmidrule(lr){5-7}\n"
             "\\textbf{Pollutant} & \\textbf{Pre SD} & \\textbf{Slope $p$} & \\textbf{Peri$-$pre} & "
             "\\textbf{Pre SD} & \\textbf{Slope $p$} & \\textbf{Peri$-$pre}\\\\\n\\midrule\n"
@@ -106,12 +109,12 @@ def s5():
                  for L in (14, 21, 28) for s in ("", "_meteo")]
         rows.append([r.region, TEX[r.pollutant]] + cells +
                     [pv(r.placebo_p), pv(r.placebo_meteo_p)])
-    cap = ("Window-length sensitivity and placebo-window pre-trend test, revised specification (pre window "
+    cap = ("Window-length sensitivity and placebo-window pre-trend test, main specification (pre window "
            "ending LNY$-$3; standard errors clustered by grid cell and date). Columns give the DiD estimate "
            "for 14-, 21- and 28-day windows without (nm) and with (met) ERA5 covariates; $^*$ $p<0.05$. "
            "The last two columns are $p$-values of the placebo-window DiD (LNY$-$42..$-$22 vs pre window); "
            "$p<0.05$ indicates differential pre-trends. Units: $\\upmu$g/m$^3$ (CO in mg/m$^3$).")
-    return "{\\footnotesize\\setlength{\\tabcolsep}{3pt}\n" + longtable(cap, ["Region", "Pollutant", "14d nm", "14d met", "21d nm", "21d met",
+    return "{\\footnotesize\\setlength{\\tabcolsep}{2.4pt}\n" + longtable(cap, ["Region", "Pollutant", "14d nm", "14d met", "21d nm", "21d met",
                                          "28d nm", "28d met", "Plac. $p$ nm", "Plac. $p$ met"],
                                    rows, "llrrrrrrrr") + "}\n"
 
@@ -169,7 +172,7 @@ def s11():
     v = v.assign(_r=v.region.map(ORDER.index), _p=v.pollutant.map(POLS.index)).sort_values(["_r", "_p"])
     for _, r in v.iterrows():
         d = dp(r.pollutant)
-        rows.append([r.region, TEX[r.pollutant], str(r.n_cells), f"{r.A_r_daily_2020:.2f}",
+        rows.append([r.region, "O$_3$" if r.pollutant == "o3" else TEX[r.pollutant], str(r.n_cells), f"{r.A_r_daily_2020:.2f}",
                      num(r.B_change2020_cnemc, d), num(r.B_change2020_chap, d),
                      f"{r.B_attenuation_chap_over_cnemc:.2f}", f"{r.B_r_change_across_cells:.2f}",
                      num(r.C_DiD_2020v2021_cnemc, d) + ("$^*$" if r.C_p_cnemc < 0.05 else ""),
@@ -201,10 +204,166 @@ def s12():
             "\n\\bottomrule\n\\end{tabular}\\end{table}\n")
 
 
+def s14():
+    w = pd.read_csv(os.path.join(A, "wild_bootstrap.csv"))
+    w = w[w.pollutant == "no2"]
+    rows = []
+    for reg in ORDER:
+        r = {(a, c): w[(w.region == reg) & (w.adj == a) & (w.cluster == c)].iloc[0]
+             for a in ("nometeo", "meteo") for c in ("cell", "date")}
+        row = [reg, str(int(r[("nometeo", "cell")].n_clusters))]
+        for a in ("nometeo", "meteo"):
+            x = r[(a, "cell")]
+            row += [num(x.beta, 1), pv(x.p_wcr), pv(r[(a, "date")].p_wcr),
+                    f"({num(r[(a, 'date')].ci_lo_wcr, 1)}, {num(r[(a, 'date')].ci_hi_wcr, 1)})"]
+        rows.append(row)
+    cap = ("Wild cluster bootstrap inference for the NO$_2$ DiD estimate (2020 vs 2019). Restricted wild "
+           "cluster bootstrap (WCR) with Webb six-point weights and 9,999 replications, clustering by grid cell "
+           "(the dimension with few clusters; number of cells shown) and, separately, by calendar date (80 "
+           "clusters). The 95\\% interval is obtained by inverting the date-clustered bootstrap test. "
+           "Units: $\\upmu$g/m$^3$.")
+    return ("{\\footnotesize\\setlength{\\tabcolsep}{3pt}\n" +
+            longtable(cap, ["Region", "Cells", "DiD nm", "$p$ cell", "$p$ date", "95\\% CI nm",
+                            "DiD met", "$p$ cell", "$p$ date", "95\\% CI met"], rows, "lrrrrcrrrc") + "}\n")
+
+
+def s15():
+    m = pd.read_csv(os.path.join(A, "meteo_diagnostics.csv"))
+    rows = []
+    for _, r in m.iterrows():
+        d = dp(r.pollutant)
+        rows.append([r.region, TEX[r.pollutant], str(r.n_cells), f"{r.r2_PostTreat_on_meteo:.2f}",
+                     num(r.DiD_nometeo, d), num(r.DiD_meteo, d), num(r.DiD_outside_window_weather, d),
+                     f"({num(r.oow_ci_lo_boot, d)}, {num(r.oow_ci_hi_boot, d)})"])
+    cap = ("Diagnostics of the ERA5 adjustment. $R^2$: share of the identifying variation of the DiD "
+           "interaction (after grid-cell fixed effects, Post and Treat) explained by the seven ERA5 covariates. "
+           "Out-of-window: the pollutant--weather relationship is estimated from all January--March days of "
+           "2019 and 2021 (grid-cell and year$\\times$window-segment fixed effects), the 2019 and 2020 data "
+           "are adjusted with these fixed coefficients, and the DiD is estimated without covariates; 95\\% "
+           "interval from a date-block bootstrap of both stages (199 replications). Units: $\\upmu$g/m$^3$.")
+    return ("{\\footnotesize\\setlength{\\tabcolsep}{3pt}\n" +
+            longtable(cap, ["Region", "Pollutant", "Cells", "$R^2$", "No met.", "ERA5-adj.",
+                            "Out-of-window", "95\\% CI"], rows, "llrrrrrc") + "}\n")
+
+
+def s17():
+    rows = []
+    for a, lab in (("nometeo", "nm"), ("meteo", "met")):
+        t = pd.read_csv(os.path.join(A, f"significance_table_rev_gap2_twoway_{a}.csv"))
+        l = pd.read_csv(os.path.join(A, f"significance_table_rev_gap2_twoway_{a}_log.csv"))
+        m = t.merge(l[["region", "pollutant", "H3_pct", "H3_ci_lo_pct", "H3_ci_hi_pct", "H3_qval"]],
+                    on=["region", "pollutant"], suffixes=("", "_log"))
+        m["pct_of_pre"] = 100 * m.H3_lockdown_DiD * m.H2_2020_pct / (100 * m.H2_2020_abs)
+        for _, r in sortkey(m[m.pollutant == "no2"]).iterrows():
+            rows.append([r.region, lab, num(r.H3_lockdown_DiD, 1), num(r.pct_of_pre, 1), pv(r.H3_qval),
+                         pv(r.H3_qval_by), num(r.H3_pct, 1),
+                         f"({num(r.H3_ci_lo_pct, 1)}, {num(r.H3_ci_hi_pct, 1)})", pv(r.H3_qval_log)])
+    counts = []
+    for a in ("nometeo", "meteo"):
+        t = pd.read_csv(os.path.join(A, f"significance_table_rev_gap2_twoway_{a}.csv"))
+        counts.append(f"{(t.H3_qval < .05).sum()} (BH) and {(t.H3_qval_by < .05).sum()} (BY) "
+                      f"{'without' if a == 'nometeo' else 'with'} covariates")
+    cap = ("NO$_2$ DiD estimate in levels and in logarithms, with two false-discovery-rate procedures. "
+           "Level: estimate in $\\upmu$g/m$^3$ and as a percentage of the 2020 pre-window mean; $q$ BH: "
+           "Benjamini--Hochberg; $q$ BY: Benjamini--Yekutieli, valid under arbitrary dependence among the "
+           "nested regional tests (both within pollutant across the 11 regions). Log: DiD on log "
+           "concentrations, expressed as $100(e^{\\beta_3}-1)$\\%, with its 95\\% interval and BH $q$. "
+           "Across all 66 region$\\times$pollutant tests, the number of estimates with $q<0.05$ is "
+           + "; ".join(counts) + ". nm/met: without/with ERA5 covariates.")
+    return ("{\\footnotesize\\setlength{\\tabcolsep}{3pt}\n" +
+            longtable(cap, ["Region", "Spec.", "Level", "\\% of pre", "$q$ BH", "$q$ BY", "Log (\\%)",
+                            "95\\% CI", "$q$ log"], rows, "llrrrrrcr") + "}\n")
+
+
+def s16():
+    """Multi-year controls: station (all pollutants) and, when available, CHAP 1 km (PM, O3)."""
+    parts = []
+    for src in ("station", "chap"):
+        f = os.path.join(A, f"multiyear_{src}.csv")
+        if os.path.exists(f):
+            parts.append(pd.read_csv(f))
+    t = pd.concat(parts, ignore_index=True)
+    t = t[(t.pollutant == "no2") | (t.region == "National")]
+    rows = []
+    for src in ("station", "chap"):
+        for _, r in sortkey(t[t.source == src]).iterrows():
+            if r.adj != "meteo" and r.pollutant != "no2":
+                continue
+            d = dp(r.pollutant)
+            beyond = ((r.pooled_DiD < 0) & (r.pooled_DiD < r.pooled_placebo_min)) | \
+                     ((r.pooled_DiD > 0) & (r.pooled_DiD > r.pooled_placebo_max))
+            rows.append(["CNEMC" if src == "station" else "CHAP", r.region, TEX[r.pollutant],
+                         "nm" if r.adj == "nometeo" else "met", str(int(r.pooled_n_cells)),
+                         num(r.pair_2019, d), num(r.pooled_DiD, d) + ("$^*$" if r.pooled_p < 0.05 else ""),
+                         num(r.trend_DiD, d) + ("$^*$" if r.trend_p < 0.05 else ""),
+                         f"{num(r.pooled_placebo_min, d)} to {num(r.pooled_placebo_max, d)}",
+                         "yes" if beyond else "no", pv(r.pretrend_pooled_p)])
+    cap = ("Difference-in-differences with five pre-pandemic control years (2015--2019). CNEMC: station "
+           "observations, restricted to stations with at least 80\\% valid days in the pre and peri windows "
+           "of every year 2015--2021 and averaged to grid cells (gaseous concentrations before September "
+           "2018 converted to the 25$^{\\circ}$C reference state); CHAP: 1-km product (PM$_{2.5}$, PM$_{10}$, "
+           "O$_3$). 2020v2019: two-year DiD on the same data; pooled: 2020 change minus the mean holiday "
+           "change of 2015--2019 (grid-cell$\\times$year fixed effects); trend: pooled, with the holiday "
+           "change allowed to vary linearly across years; placebo range: the pooled estimator applied to each "
+           "control year against the other four; beyond: 2020 estimate more extreme than all five placebos "
+           "(rank $p=1/6$); pre-trend $p$: the pooled design on the placebo window (LNY$-$42 to $-$22) "
+           "versus the pre window. $^*$ $p<0.05$ (two-way clustered by grid cell and date). NO$_2$ for all "
+           "regions; other pollutants nationally, ERA5-adjusted. Units: $\\upmu$g/m$^3$ (CO in mg/m$^3$). "
+           "For CHAP the 2015--2018 data start on 1 January, so the placebo windows of 2016, 2017 and 2019, "
+           "which begin in December, are incomplete.")
+    st = t[(t.source == "station") & (t.pollutant == "no2") & (t.adj == "meteo")].set_index("region")
+    if "pooled_unconverted_DiD" in st:
+        sens = ", ".join(f"{r} {num(st.loc[r, 'pooled_unconverted_DiD'], 1)}" for r in ("National", "BTH", "Jilin"))
+        cap += (" Without the reference-state conversion of the 2015--2018 station data, the pooled ERA5-adjusted "
+                f"NO$_2$ estimates are {sens}~$\\upmu$g/m$^3$, all with $p<0.05$." if
+                (st.loc[["National", "BTH", "Jilin"], "pooled_unconverted_p"] < 0.05).all() else
+                " Without the reference-state conversion of the 2015--2018 station data, the pooled ERA5-adjusted "
+                f"NO$_2$ estimates are {sens}~$\\upmu$g/m$^3$.")
+    return ("{\\scriptsize\\setlength{\\tabcolsep}{2.5pt}\n" +
+            longtable(cap, ["Data", "Region", "Pollutant", "Spec.", "Cells", "2020v2019", "Pooled",
+                            "Trend", "Placebo range", "Beyond", "Pre-trend $p$"], rows,
+                      "lllllrrrcrr") + "}\n")
+
+
+def table1_panel_b():
+    """Main-text Table 1, panel B: NO2 evidence matrix (ERA5-adjusted unless stated)."""
+    sig = pd.read_csv(os.path.join(A, "significance_table_rev_gap2_twoway_meteo.csv"))
+    rob = pd.read_csv(os.path.join(A, "robustness_table_rev.csv"))
+    plc = pd.read_csv(os.path.join(A, "placebo_years_summary.csv"))
+    val = pd.read_csv(os.path.join(ROOT, "outputs", "verify", "chap_lockdown_validation.csv"))
+    sta = pd.read_csv(os.path.join(A, "multiyear_station.csv"))
+    wb = pd.read_csv(os.path.join(A, "wild_bootstrap.csv"))
+    md = pd.read_csv(os.path.join(A, "meteo_diagnostics.csv"))
+    rows = []
+    for reg in ["National", "BTH", "Jilin", "Xinjiang"]:
+        f = lambda d: d[(d.region == reg) & (d.pollutant == "no2")]
+        g = f(sig).iloc[0]
+        r = f(rob).iloc[0]
+        win = "/".join("y" if r[f"p_{L}d_meteo"] < 0.05 else "n" for L in (14, 21, 28))
+        pl = f(plc)[f(plc).adj == "meteo"].iloc[0]
+        v = f(val).iloc[0]
+        st = f(sta)[f(sta).adj == "meteo"].iloc[0]
+        beyond = st.pooled_DiD < st.pooled_placebo_min
+        w = f(wb)[(f(wb).adj == "meteo") & (f(wb).cluster == "date")].iloc[0]
+        m = f(md).iloc[0]
+        rows.append([reg,
+                     f"{num(g.H3_lockdown_DiD, 1)} ({num(g.H3_ci_lo, 1)}, {num(g.H3_ci_hi, 1)})",
+                     pv(w.p_wcr), pv(g.placebo_meteo_p), win,
+                     f"{num(pl.z_vs_placebo, 1)} ({'yes' if pl.lockdown_beyond_all_placebos else 'no'})",
+                     num(v.C_DiD_2020v2021_cnemc, 1) + ("$^*$" if v.C_p_cnemc < 0.05 else ""),
+                     num(st.pooled_DiD, 1) + ("$^*$" if st.pooled_p < 0.05 else "") +
+                     f" ({'yes' if beyond else 'no'})",
+                     pv(st.pretrend_pooled_p), num(m.DiD_outside_window_weather, 1)])
+    return "\n".join(" & ".join(r) + "\\\\" for r in rows)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     for name, fn in [("S2", s2), ("S4", s4), ("S5", s5), ("S9", s9), ("S10", s10), ("S11", s11),
-                     ("S12", s12)]:
+                     ("S12", s12), ("S14", s14), ("S15", s15), ("S16", s16), ("S17", s17)]:
         with open(os.path.join(OUT, f"{name}.tex"), "w") as fh:
             fh.write(fn())
         print("wrote", name)
+    with open(os.path.join(OUT, "T1B_rows.tex"), "w") as fh:     # pasted into manuscript Table 1
+        fh.write(table1_panel_b() + "\n")
+    print("wrote T1B_rows")

@@ -17,4 +17,5 @@ SciRep_Submission/
 # Confidential peer-review material (kept local)
 Reviewer*attachment*
 reviewer_comments.md
-feedback.md
+feedback*.md
+CLAUDE.md

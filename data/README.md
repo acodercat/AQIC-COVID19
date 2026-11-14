@@ -21,6 +21,14 @@ The 1-km CHAP NO₂, SO₂ and CO products for 2019–2021 are distributed by th
 | `placebo_years.csv`, `placebo_years_summary.csv` | Year-pair placebo DiDs and their comparison with the 2020 estimate (Fig. 7, Table S10). |
 | `descriptive_numbers.csv` | Raw pre/peri means and changes quoted in the text. |
 | `clean_report.csv` | Outlier screening of the station data (Table S1). |
+| `significance_table_rev_gap2_twoway_{nometeo,meteo}_log.csv` | The main DiD on log concentrations; `H3_pct` = 100(exp(β₃) − 1) (Table S17). The main tables also carry `H3_qval_by` (Benjamini–Yekutieli). |
+| `wild_bootstrap.csv` | Restricted wild cluster bootstrap (Webb weights, 9,999 replications) for every DiD estimate, clustered by grid cell or by date; NO₂ rows include 95% intervals by test inversion (Table S14, Table 1b). |
+| `meteo_diagnostics.csv`, `meteo_diagnostics_coefs.csv` | Share of the DiD interaction explained by the ERA5 covariates, the covariate coefficients, and the DiD with weather coefficients estimated outside 2020 (Table S15). |
+| `multiyear_station.csv`, `multiyear_chap.csv` | DiD of 2020 against each of 2015–2019, against their pooled mean, and with a linear trend in the holiday change; leave-one-out placebo range and pre-trend test (Table S16, Table 1b). |
+| `multiyear_placebo_station.csv`, `multiyear_placebo_chap.csv` | The individual placebo estimates (leave-one-out and pairwise among 2015–2019). |
+| `cnemc_consistency.csv` | Station history vs the CNEMC data of the ML-LUR model table at identical cell-days of 2020–2021. |
+| `beijing_haze_meteo.csv` | Beijing weather in the 2019 and 2020 peri windows (quoted in the Results). |
+| `compare_r1.md` | Changes relative to the first revision after the wind-direction correction. |
 
 Key columns of the significance tables:
 
@@ -58,14 +66,18 @@ Key columns of the significance tables:
 | `crosswalk.csv`, `test_holdout.csv` | Mapping to the grid IDs of the original dataset; the 49 held-out cells |
 
 ### `chap_panels/` — daily CHAP at the 747 cells (Parquet: `grid_id`, `date`, `<pollutant>`)
-- `chap_{pm2_5,pm10,o3}_{2018..2021}_D1K.parquet` — from the 1-km products (PM₂.₅ V4, PM₁₀ V4, O₃ V3). 2018 files cover January–March only.
+- `chap_{pm2_5,pm10,o3}_{2015..2021}_D1K.parquet` — from the 1-km products (PM₂.₅ V4, PM₁₀ V4, O₃ V3). The 2015–2018 files cover January–March only.
 - `chap_{no2,so2,co}_{2013..2018}_D10K.parquet` — from the 10-km V1 products, January–March only (placebo years). 14 of the 747 cells fall outside the 10-km product's coverage.
 
 ### `chap_maps/` — 21-day window means on the full China grid (Figs 3–4)
 - `mapfields_{pm2_5,pm10,o3}_{2019,2020,2021}.parquet` — columns `grid_id`, `<pollutant>`, `lat`, `lon`, `period` (`pre`/`peri`/`post`).
 
+### `stations/` — CNEMC station history, 2015–2021 LNY windows
+- `cnemc_cells.parquet` — daily means per grid cell (`grid_id`, `date`, six pollutants; `o3` = MDA8, `o3_mean` = daily mean) from the stations retained for each pollutant (at least 80% valid days in the pre and peri windows of every year 2015–2021). Gaseous values before 1 September 2018 are converted to the 25 °C reference state (× 273.15/298.15). Source: hourly CNEMC real-time release archived at https://quotsoft.net/air/; processing in `pipeline/cnemc_history.py`.
+- `cnemc_balance.csv` — stations and cells retained per pollutant.
+
 ### `meteorology/`
-- `era5_windows.parquet` — ERA5 daily means at the 747 cells for January–March 2013–2021 and December 2019. Columns: `t2m` (°C), `rh` (%), `spfh` (kg kg⁻¹), `sp` (Pa), `wind_speed` (m s⁻¹), `wind_dir` (degrees, direction wind blows from), `gust` (daily max, m s⁻¹), `pwat` (kg m⁻²).
+- `era5_windows.parquet` — ERA5 daily means at the 747 cells for January–March 2013–2021 and December 2015, 2016, 2018 and 2019. The daily wind direction is the vector mean of the hourly directions. Columns: `t2m` (°C), `rh` (%), `spfh` (kg kg⁻¹), `sp` (Pa), `wind_speed` (m s⁻¹), `wind_dir` (degrees, direction wind blows from), `gust` (daily max, m s⁻¹), `pwat` (kg m⁻²).
 
 ## Sources and licences
 

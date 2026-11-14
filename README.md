@@ -13,9 +13,9 @@ All DiD estimates use CHAP; the ML-LUR model is not used in the lockdown estimat
 
 | Folder | Contents |
 |---|---|
-| `pipeline/` | Data acquisition and gridding: 0.25° grid (`grid.py`), CHAP (`chap.py`), ERA5 (`era5.py`, `era5_windows.py`), AOD, land cover, elevation, model table (`build_dataset.py`). Settings in `pipeline/config.yaml`. |
+| `pipeline/` | Data acquisition and gridding: 0.25° grid (`grid.py`), CHAP (`chap.py`), ERA5 (`era5.py`, `era5_windows.py`), CNEMC station history 2015–2021 (`cnemc_history.py`), AOD, land cover, elevation, model table (`build_dataset.py`). Settings in `pipeline/config.yaml`. |
 | `model/` | ML-LUR: hyperparameter search (`hpo.py`), training and spatial-holdout evaluation (`train.py`), LightGBM vs XGBoost vs SVR (`compare.py`). |
-| `analysis/` | LNY windows (`windows.py`), DiD estimator (`did.py`), significance tables (`significance.py`), event study, window-length robustness, year-pair placebo, descriptive numbers, outlier report, supplementary-table generation. |
+| `analysis/` | LNY windows (`windows.py`), DiD estimator (`did.py`), significance tables (`significance.py`), event study, window-length robustness, year-pair placebo, multiple control years (`multiyear.py`), wild cluster bootstrap (`wild_bootstrap.py`), diagnostics of the meteorological adjustment (`meteo_diagnostics.py`), descriptive numbers, outlier report, supplementary-table generation. |
 | `verify/` | Data-integrity checks (`sanity.py`) and CHAP-vs-station evaluation during the lockdown (`chap_lockdown_validation.py`). |
 | `figures/` | Figure scripts. |
 | `data/` | **Processed data and all results** (CSV/Parquet; CC BY 4.0) — see `data/README.md`. |
@@ -40,6 +40,7 @@ uv venv --python 3.13 && uv pip sync requirements.txt     # or: pip install -r r
 | CHAP 1-km daily PM₂.₅ V4, PM₁₀ V4, O₃ V3 | Wei et al. | Zenodo, open |
 | CHAP 1-km daily NO₂, SO₂, CO V2 (2019–) | Wei et al. | Zenodo, **restricted** — request access from the providers |
 | CHAP 10-km daily NO₂, SO₂, CO V1 (2013–2018, placebo years) | Wei et al. | Zenodo, open |
+| CNEMC hourly station data 2015–2021 (multi-year controls) | CNEMC real-time release, archived at quotsoft.net | open; `pipeline/cnemc_history.py --download` |
 | ERA5 single levels | Copernicus CDS | free account; `~/.cdsapirc` |
 | MCD19A2 AOD, SRTM | NASA / Google Earth Engine | free account |
 
@@ -57,16 +58,26 @@ for p in pm2_5 pm10 o3; do python pipeline/chap.py --pollutant $p --year 2018 --
 for p in no2 so2 co; do for y in 2013 2014 2015 2016 2017 2018; do
   python pipeline/chap.py --pollutant $p --year $y --res D10K --months 1,2,3; done; done
 python pipeline/era5_windows.py
+# station history for the multi-year controls, and CHAP 1-km PM/O3 for 2015-2017
+python pipeline/cnemc_history.py --download && python pipeline/cnemc_history.py --build
+for p in pm2_5 pm10 o3; do for y in 2015 2016 2017; do
+  python pipeline/chap.py --pollutant $p --year $y --months 1,2,3 --clean; done; done
 
 # 2. DiD tables (revised specification: pre window ends LNY-3, two-way clustered SE)
 python analysis/significance.py --pre-gap 2 --cluster twoway --tag rev_gap2_twoway_meteo
 python analysis/significance.py --pre-gap 2 --cluster twoway --no-meteo --tag rev_gap2_twoway_nometeo
+python analysis/significance.py --pre-gap 2 --cluster twoway --log --tag rev_gap2_twoway_meteo_log
+python analysis/significance.py --pre-gap 2 --cluster twoway --no-meteo --log --tag rev_gap2_twoway_nometeo_log
 
 # 3. Robustness and validation
 python analysis/event_study.py
 python analysis/robustness.py --pre-gap 2 --cluster twoway --tag rev
 python analysis/placebo_years.py
 python verify/chap_lockdown_validation.py
+python analysis/multiyear.py --source station --check
+python analysis/multiyear.py --source station && python analysis/multiyear.py --source chap
+python analysis/wild_bootstrap.py
+python analysis/meteo_diagnostics.py
 python analysis/descriptive.py
 
 # 4. Figures and supplementary tables
@@ -88,7 +99,7 @@ The ML-LUR results (Fig. 2, Supp. Tables S3, S8 and S13) are produced by `python
 | Supp. Table S8 (model comparison) | `model/compare.py` | `outputs/models/` |
 | Figs 3–4 (national maps), Supp. Fig. S10 (SO₂ by province) | `figures/regen_figs.py` | `outputs/figures/fig{5,6,7}_chap.png` |
 | In-text raw changes and inter-annual means | `analysis/descriptive.py` | `outputs/analysis/descriptive_numbers.csv` |
-| Table 1, Fig. 5, Supp. Table S9 (DiD with and without meteorology) | `analysis/significance.py` (rev tags), `figures/revision_figs.py` | `outputs/analysis/significance_table_rev_gap2_twoway_{nometeo,meteo}.csv`, `outputs/figures/did_forest_rev.png` |
+| Table 1a, Fig. 5, Supp. Table S9 (DiD with and without meteorology) | `analysis/significance.py` (rev tags), `figures/revision_figs.py` | `outputs/analysis/significance_table_rev_gap2_twoway_{nometeo,meteo}.csv`, `outputs/figures/did_forest_rev.png` |
 | Fig. 6, Supp. Fig. S12, Supp. Table S4 (event study) | `analysis/event_study.py` | `outputs/figures/event_study_{nometeo,meteo}.png`, `outputs/analysis/event_study_{coefs,pretrend}.csv` |
 | Supp. Table S5 (window length, placebo-window pre-trend test) | `analysis/robustness.py`, `analysis/significance.py` | `outputs/analysis/robustness_table_rev.csv` |
 | Fig. 7, Supp. Table S10 (year-pair placebo) | `analysis/placebo_years.py`, `figures/revision_figs.py` | `outputs/analysis/placebo_years{,_summary}.csv`, `outputs/figures/placebo_years_no2.png` |
@@ -98,6 +109,11 @@ The ML-LUR results (Fig. 2, Supp. Tables S3, S8 and S13) are produced by `python
 | Supp. Figs S1–S6 (event-time curves) | `figures/festival.py` | `outputs/figures/festival_<region>.png` |
 | Supp. Fig. S9 (city time series) | `figures/fig4_cities.py` | `outputs/figures/fig4_cities.png` |
 | Supp. Fig. S11 (2021 vs 2019) | `figures/maps.py`, `figures/reversion_composite.py` | `outputs/figures/reversion_composite.png` |
+| Table 1b (summary of the NO₂ checks) | `analysis/supp_tables.py` (after all analyses) | `SciRep_Submission/revision/tables/T1B_rows.tex` |
+| Supp. Table S14 (wild cluster bootstrap) | `analysis/wild_bootstrap.py` | `outputs/analysis/wild_bootstrap.csv` |
+| Supp. Table S15 (meteorological adjustment diagnostics) | `analysis/meteo_diagnostics.py` | `outputs/analysis/meteo_diagnostics{,_coefs}.csv` |
+| Supp. Table S16 (control years 2015–2019, station and CHAP) | `pipeline/cnemc_history.py`, `analysis/multiyear.py` | `outputs/analysis/multiyear_{station,chap}.csv`, `multiyear_placebo_*.csv`, `cnemc_consistency.csv` |
+| Supp. Table S17 (log DiD, Benjamini–Yekutieli) | `analysis/significance.py --log` | `outputs/analysis/significance_table_rev_gap2_twoway_*_log.csv` |
 | LaTeX supplementary tables | `analysis/supp_tables.py` | `SciRep_Submission/revision/tables/*.tex` |
 
 `analysis/did.py` contains a self-test (`python analysis/did.py`) that recovers a known effect from simulated data.
